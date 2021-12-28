@@ -130,6 +130,16 @@ export default function Transactions() {
         state.multisig.numTransactions.toNumber(),
       ]);
       const instructions = [];
+      if (modal.step === "raw") {
+        instructions.push({
+          programId: publicKey(input1),
+          keys: JSON.parse(input2).map(k => {
+            k.pubkey = publicKey(k.pubkey);
+            return k;
+          }),
+          data: Buffer.from(JSON.parse(input3)),
+        });
+      }
       if (modal.step === "idl") {
       }
       if (modal.step === "token") {
@@ -148,7 +158,7 @@ export default function Transactions() {
             { pubkey: target, isSigner: false, isWritable: true },
             { pubkey: state.multisigKey, isSigner: true, isWritable: false },
           ],
-          data: Uint8Array.from([3, ...Array.from(bnToBytes(amount))]),
+          data: Buffer.from([3, ...Array.from(bnToBytes(amount))]),
         });
       }
       if (modal.step === "upgrade") {
@@ -233,6 +243,7 @@ export default function Transactions() {
       });
       setInput1("");
       setInput2("");
+      setInput3("");
       setModal();
       fetchData();
     } catch (err) {
@@ -349,6 +360,12 @@ export default function Transactions() {
               <div>
                 <div
                   className="box pointer mb-2"
+                  onClick={() => setModal({ type: "new", step: "raw" })}
+                >
+                  Raw Instruction
+                </div>
+                <div
+                  className="box pointer mb-2"
                   onClick={() => setModal({ type: "new", step: "idl" })}
                 >
                   IDL Instruction
@@ -382,6 +399,45 @@ export default function Transactions() {
                   onClick={() => setModal({ type: "new", step: "owners" })}
                 >
                   Multisig: Set Owners
+                </div>
+              </div>
+            ) : null}
+            {modal.step === "raw" ? (
+              <div>
+                <label className="label">Program Id</label>
+                <div className="mb-2">
+                  <input
+                    className="input w-full"
+                    value={input1}
+                    onChange={(e) => setInput1(e.target.value)}
+                  />
+                </div>
+                <label className="label">Keys (JSON array of Account Meta)</label>
+                <div className="mb-2">
+                  <textarea
+                    rows={2}
+                    className="input w-full"
+                    value={input2}
+                    onChange={(e) => setInput2(e.target.value)}
+                  />
+                </div>
+                <label className="label">Data (JSON array of bytes)</label>
+                <div className="mb-2">
+                  <textarea
+                    rows={2}
+                    className="input w-full"
+                    value={input3}
+                    onChange={(e) => setInput3(e.target.value)}
+                  />
+                </div>
+                <div className="text-right">
+                  <button
+                    className="button"
+                    onClick={onCreate}
+                    disabled={loading}
+                  >
+                    {loading ? "Loading..." : "Create Transaction"}
+                  </button>
                 </div>
               </div>
             ) : null}
