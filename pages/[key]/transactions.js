@@ -50,9 +50,9 @@ export default function Transactions() {
   }
 
   useEffect(() => {
-    if (!router.query.key) return;
+    if (!router.query.key || !state.program) return;
     fetchData();
-  }, [router.query.key]);
+  }, [router.query.key, state.program]);
 
   async function onApprove() {
     if (!state.connected) {
