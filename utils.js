@@ -62,7 +62,7 @@ if (global?.window?.DOMError) {
 
   // connect to wallet if returning user
   const initHandle = setInterval(() => {
-    if (!window.solana) return;
+    if (!window.solana && !window.solflare) return;
     clearInterval(initHandle);
 
     if (window.localStorage.getItem("walletConnected")) {
@@ -92,38 +92,51 @@ export function setGlobalState(newState) {
 
 export async function walletConnect() {
   if (state.connected) return;
-  if (!window.solana /* || !window.solana.isPhantom */) {
-    return alert("Can't find a Solana wallet! Is it installed?");
-  }
-  const handleDisconnect = window.solana._handleDisconnect;
-  try {
-    await new Promise((resolve, reject) => {
-      window.solana._handleDisconnect = () => {
-        reject(new Error("Wallet closed"));
-        return handleDisconnect.apply(window.solana, args);
-      };
-      const onConnect = () => {
-        window.solana.off("connect", onConnect);
-        resolve();
-      };
-      window.solana.on("connect", onConnect);
-      window.solana.connect().catch((err) => {
-        window.solana.off("connect", onConnect);
-        reject(err);
-      });
+  let wallet;
+  let publicKey;
+  if (window.solflare) {
+    await window.solflare.connect();
+    wallet = window.solflare;
+    publicKey = new PublicKey(window.solflare.publicKey.toBytes());
+    window.solflare.on('disconnect', () => {
+      setGlobalState({ connected: false, publicKey: PublicKey.default, program: null });
     });
-  } finally {
-    window.solana._handleDisconnect = handleDisconnect;
+  } else {
+    if (!window.solana /* || !window.solana.isPhantom */) {
+      return alert("Can't find a Solana wallet! Is it installed?");
+    }
+    const handleDisconnect = window.solana._handleDisconnect;
+    try {
+      await new Promise((resolve, reject) => {
+        window.solana._handleDisconnect = () => {
+          reject(new Error("Wallet closed"));
+          return handleDisconnect.apply(window.solana, args);
+        };
+        const onConnect = () => {
+          window.solana.off("connect", onConnect);
+          resolve();
+        };
+        window.solana.on("connect", onConnect);
+        window.solana.connect().catch((err) => {
+          window.solana.off("connect", onConnect);
+          reject(err);
+        });
+      });
+    } finally {
+      window.solana._handleDisconnect = handleDisconnect;
+    }
+    window.solana.on("disconnect", () => {
+      setGlobalState({ connected: false, publicKey: PublicKey.default, program: null });
+    });
+    wallet = window.solana;
+    publicKey = new PublicKey(window.solana.publicKey.toBytes());
   }
   setGlobalState({
     connected: true,
-    publicKey: new PublicKey(window.solana.publicKey.toBytes()),
-  });
-  window.solana.on("disconnect", () => {
-    state = { connected: false };
+    publicKey,
   });
   anchor.setProvider(
-    new anchor.Provider(connection, window.solana, {
+    new anchor.Provider(connection, wallet, {
       preflightCommitment,
       commitment: preflightCommitment,
     })
@@ -210,7 +223,7 @@ export function explorerLink(address) {
     typeof window !== "undefined" &&
     window.location.search === "?cluster=devnet"
       ? "?cluster=devnet"
-      : null;
+      : '';
   return `https://explorer.solana.com/address/${address.toString()}${suffix}`;
 }
 

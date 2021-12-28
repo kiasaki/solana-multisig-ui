@@ -148,7 +148,7 @@ export const IDL = {
       "name": "approve",
       "accounts": [
         {
-          "name": "owner",
+          "name": "signer",
           "isMut": false,
           "isSigner": true
         },

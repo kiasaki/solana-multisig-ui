@@ -25,6 +25,7 @@ export default function Transactions() {
   const [input1, setInput1] = useState("");
   const [input2, setInput2] = useState("");
   const [input3, setInput3] = useState("");
+  const [input4, setInput4] = useState("");
 
   async function fetchData() {
     try {
@@ -62,7 +63,7 @@ export default function Transactions() {
       setLoading(true);
       await state.program.rpc.approve({
         accounts: {
-          owner: state.publicKey,
+          signer: state.publicKey,
           multisig: state.multisigKey,
           transaction: modal.transaction.key,
         },
@@ -86,15 +87,17 @@ export default function Transactions() {
       setLoading(true);
       let remainingAccounts = [];
       for (let i of modal.transaction.data.instructions) {
-        remainingAccounts = remainingAccounts.concat(i.keys
-          .map((k) => Object.assign(k, { isSigner: false }))
-          .concat([
-            {
-              pubkey: i.programId,
-              isSigner: false,
-              isWritable: false,
-            },
-          ]));
+        remainingAccounts = remainingAccounts.concat(
+          i.keys
+            .map((k) => Object.assign(k, { isSigner: false }))
+            .concat([
+              {
+                pubkey: i.programId,
+                isSigner: false,
+                isWritable: false,
+              },
+            ])
+        );
       }
       await state.program.rpc.executeTransaction({
         accounts: {
@@ -155,8 +158,8 @@ export default function Transactions() {
             {
               pubkey: (
                 await computePda(
-                  publicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
-                  [publicKey(input1)]
+                  [publicKey(input1)],
+                  publicKey("BPFLoaderUpgradeab1e11111111111111111111111")
                 )
               )[0],
               isSigner: false,
@@ -193,11 +196,10 @@ export default function Transactions() {
               isWritable: false,
             },
           ],
-          data: Uint8Array.from([3, 0, 0, 0]),
+          data: Buffer.from([3, 0, 0, 0]),
         });
       }
       if (modal.step === "delay") {
-        console.log(state.multisigKey.toString());
         instructions.push(
           state.program.instruction.changeDelay(bn(parseInt(input1), 0), {
             accounts: { multisig: state.multisigKey },
@@ -295,8 +297,9 @@ export default function Transactions() {
             <tr>
               <th>#</th>
               <th>Proposer</th>
-              <th>Instructions</th>
+              <th>Ixs</th>
               <th>Signatures</th>
+              <th>ETA</th>
               <th>Executed</th>
               <th></th>
             </tr>
@@ -314,6 +317,7 @@ export default function Transactions() {
                     {t.data.signers.filter((s) => s).length} /{" "}
                     {t.data.signers.length}
                   </td>
+                  <td>{formatDateTime(t.data.eta.toNumber())}</td>
                   <td>{executedAt > 0 ? formatDateTime(executedAt) : "-"}</td>
                   <td className="text-right">
                     <button
