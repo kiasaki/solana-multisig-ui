@@ -14,7 +14,7 @@ import {
   explorerLink,
   getAssociatedTokenAccountKey,
 } from "../../utils";
-import { tokenProgramId } from "../../data";
+import { tokenProgramId, knownIdls } from "../../data";
 
 export default function Transactions() {
   const router = useRouter();
@@ -54,69 +54,6 @@ export default function Transactions() {
     if (!router.query.key || !state.program) return;
     fetchData();
   }, [router.query.key, state.program]);
-
-  async function onApprove() {
-    if (!state.connected) {
-      walletConnect();
-      return;
-    }
-    try {
-      setLoading(true);
-      await state.program.rpc.approve({
-        accounts: {
-          signer: state.publicKey,
-          multisig: state.multisigKey,
-          transaction: modal.transaction.key,
-        },
-      });
-      setModal();
-      fetchData();
-    } catch (err) {
-      console.error("approve", err);
-      alert("Error: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onExecute() {
-    if (!state.connected) {
-      walletConnect();
-      return;
-    }
-    try {
-      setLoading(true);
-      let remainingAccounts = [];
-      for (let i of modal.transaction.data.instructions) {
-        remainingAccounts = remainingAccounts.concat(
-          i.keys
-            .map((k) => Object.assign(k, { isSigner: false }))
-            .concat([
-              {
-                pubkey: i.programId,
-                isSigner: false,
-                isWritable: false,
-              },
-            ])
-        );
-      }
-      await state.program.rpc.executeTransaction({
-        accounts: {
-          signer: state.publicKey,
-          multisig: state.multisigKey,
-          transaction: modal.transaction.key,
-        },
-        remainingAccounts,
-      });
-      setModal();
-      fetchData();
-    } catch (err) {
-      console.error("execute", err);
-      alert("Error: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function onCreate() {
     if (!state.connected) {
@@ -253,43 +190,6 @@ export default function Transactions() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function renderTransactionModalButton() {
-    if (modal.transaction.data.executedAt.toNumber() > 0) {
-      return "Executed";
-    }
-    const index = state.multisig.owners.findIndex(
-      (o) => o.toString() === state.publicKey.toString()
-    );
-    if (
-      modal.transaction.data.signers.filter((s) => s).length <
-      state.multisig.threshold.toNumber()
-    ) {
-      if (index >= 0 && !modal.transaction.data.signers[index]) {
-        return (
-          <button className="button" onClick={onApprove} disabled={loading}>
-            {loading ? "Loading..." : "Approve"}
-          </button>
-        );
-      }
-      return "Not enough signatures";
-    }
-    if (
-      Date.now() / 1000 >
-      modal.transaction.data.eta.toNumber() +
-        state.multisig.gracePeriod.toNumber()
-    ) {
-      return "Past grace period";
-    }
-    if (index >= 0) {
-      return (
-        <button className="button" onClick={onExecute} disabled={loading}>
-          {loading ? "Loading..." : "Execute"}
-        </button>
-      );
-    }
-    return null;
   }
 
   function renderTransaction(t, i) {
@@ -596,95 +496,249 @@ export default function Transactions() {
       ) : null}
 
       {modal && modal.type === "view" ? (
-        <div className="modal-container" onClick={() => setModal()}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h1 className="title flex items-center">
-              <div className="flex-1">Transaction #{modal.index}</div>
-              <div className="text-sm">{renderTransactionModalButton()}</div>
-            </h1>
+        <ModalTransaction
+          transaction={modal.transaction}
+          onClose={() => setModal()}
+        />
+      ) : null}
+    </Layout>
+  );
+}
 
-            <div className="mb-4">
-              <table className="table">
-                <tr>
-                  <td><strong>Proposer</strong></td>
-                  <td>
-                    <a
-                      href={explorerLink(modal.transaction.data.proposer)}
-                      target="_blank"
-                    >
-                      {formatPublicKey(modal.transaction.data.proposer)}
-                    </a>
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>ETA</strong></td>
-                  <td>
-                    {formatDateTime(modal.transaction.data.eta.toNumber())}
-                  </td>
-                </tr>
-              </table>
-            </div>
+function ModalTransaction({ transaction, onClose }) {
+  const state = useGlobalState();
+  const [loading, setLoading] = useState(false);
 
-            <div className="mb-4">
-              <strong>Signers</strong>
-            </div>
-            <table className="table mb-4">
-              <tr>
-                <th>Signer</th>
-                {state.multisig.ownersSeqNo.toString() ===
-                modal.transaction.data.ownersSeqNo.toString() ? (
-                  <th>Address</th>
-                ) : null}
-                <th>State</th>
-              </tr>
-              {modal.transaction.data.signers.map((s, i) => (
-                <tr key={i}>
-                  <td>#{i + 1}</td>
-                  {state.multisig.ownersSeqNo.toString() ===
-                  modal.transaction.data.ownersSeqNo.toString() ? (
-                    <td>{formatPublicKey(state.multisig.owners[i])}</td>
-                  ) : null}
-                  <td>{s ? "Approved" : "-"}</td>
-                </tr>
-              ))}
-            </table>
+  async function onApprove() {
+    if (!state.connected) {
+      walletConnect();
+      return;
+    }
+    try {
+      setLoading(true);
+      await state.program.rpc.approve({
+        accounts: {
+          signer: state.publicKey,
+          multisig: state.multisigKey,
+          transaction: modal.transaction.key,
+        },
+      });
+      setModal();
+      fetchData();
+    } catch (err) {
+      console.error("approve", err);
+      alert("Error: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
+  async function onExecute() {
+    if (!state.connected) {
+      walletConnect();
+      return;
+    }
+    try {
+      setLoading(true);
+      let remainingAccounts = [];
+      for (let i of transaction.data.instructions) {
+        remainingAccounts = remainingAccounts.concat(
+          i.keys
+            .map((k) => Object.assign(k, { isSigner: false }))
+            .concat([
+              {
+                pubkey: i.programId,
+                isSigner: false,
+                isWritable: false,
+              },
+            ])
+        );
+      }
+      await state.program.rpc.executeTransaction({
+        accounts: {
+          signer: state.publicKey,
+          multisig: state.multisigKey,
+          transaction: transaction.key,
+        },
+        remainingAccounts,
+      });
+      setModal();
+      fetchData();
+    } catch (err) {
+      console.error("execute", err);
+      alert("Error: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderInstruction(i, ii) {
+    const idl = knownIdls[i.programId.toString()];
+    if (idl) {
+      try {
+        const ixCoder = new anchor.InstructionCoder(idl);
+        const ix = ixCoder.decode(i.data);
+        const formated = ixCoder.format(ix, i.keys);
+        return (
+          <div
+            className="box text-mono text-sm mb-2"
+            style={{ border: "1px solid #333" }}
+            key={ii}
+          >
             <div className="mb-4">
-              <strong>Instructions</strong>
+              <a href={explorerLink(i.programId)} target="_blank">
+                <strong>{ix.name}</strong>
+              </a>
             </div>
-            {modal.transaction.data.instructions.map((i, ii) => (
-              <div
-                className="box text-mono text-sm mb-2"
-                style={{ border: "1px solid #333" }}
-                key={ii}
-              >
-                <div>
-                  Program ID:{" "}
-                  <a href={explorerLink(i.programId)} target="_blank">
-                    {i.programId.toString()}
-                  </a>
-                </div>
-                <div>
-                  Data:{" "}
-                  {Array.from(i.data)
-                    .map((b) => ("00" + b.toString(16)).slice(-2))
-                    .join(" ")}
-                </div>
-                {i.keys.map((k, i) => (
-                  <div key="i">
-                    {`${("0" + (i + 1)).slice(-2)} ${k.isSigner ? "S" : "-"} ${
-                      k.isWritable ? "W" : "-"
-                    } `}
-                    <a href={explorerLink(k.pubkey)} target="_blank">
-                      {k.pubkey.toString()}
-                    </a>
-                  </div>
-                ))}
+            {formated.args.map((a) => (
+              <div className="" key={a.name}>
+                <strong>{a.name}</strong> {a.data.slice(0, 20)}{a.data.length>20 ? '...' : ''} ({a.type})
+              </div>
+            ))}
+            <div className="mb-4"></div>
+            {formated.accounts.map((a) => (
+              <div key={a.name}>
+                {a.isSigner ? "S" : "-"} {a.isWritable ? "W" : "-"}{" "}
+                <a href={explorerLink(a.pubkey)} target="_blank">
+                  {formatPublicKey(a.pubkey.toString())} ({a.name})
+                </a>
               </div>
             ))}
           </div>
+        );
+      } catch (e) {
+        console.log("could not parse instructions", e);
+      }
+    }
+    return (
+      <div
+        className="box text-mono text-sm mb-2"
+        style={{ border: "1px solid #333" }}
+        key={ii}
+      >
+        <div>
+          Program ID:{" "}
+          <a href={explorerLink(i.programId)} target="_blank">
+            {i.programId.toString()}
+          </a>
         </div>
-      ) : null}
-    </Layout>
+        <div>
+          Data:{" "}
+          {Array.from(i.data)
+            .map((b) => ("00" + b.toString(16)).slice(-2))
+            .join(" ")}
+        </div>
+        {i.keys.map((k, i) => (
+          <div key={i}>
+            {`${("0" + (i + 1)).slice(-2)} ${k.isSigner ? "S" : "-"} ${
+              k.isWritable ? "W" : "-"
+            } `}
+            <a href={explorerLink(k.pubkey)} target="_blank">
+              {k.pubkey.toString()}
+            </a>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderTransactionModalButton() {
+    if (transaction.data.executedAt.toNumber() > 0) {
+      return "Executed";
+    }
+    const index = state.multisig.owners.findIndex(
+      (o) => o.toString() === state.publicKey.toString()
+    );
+    if (
+      transaction.data.signers.filter((s) => s).length <
+      state.multisig.threshold.toNumber()
+    ) {
+      if (index >= 0 && !transaction.data.signers[index]) {
+        return (
+          <button className="button" onClick={onApprove} disabled={loading}>
+            {loading ? "Loading..." : "Approve"}
+          </button>
+        );
+      }
+      return "Not enough signatures";
+    }
+    if (
+      Date.now() / 1000 >
+      transaction.data.eta.toNumber() + state.multisig.gracePeriod.toNumber()
+    ) {
+      return "Past grace period";
+    }
+    if (index >= 0) {
+      return (
+        <button className="button" onClick={onExecute} disabled={loading}>
+          {loading ? "Loading..." : "Execute"}
+        </button>
+      );
+    }
+    return null;
+  }
+
+  return (
+    <div className="modal-container" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h1 className="title flex items-center">
+          <div className="flex-1">Transaction #{transaction.index}</div>
+          <div className="text-sm">{renderTransactionModalButton()}</div>
+        </h1>
+
+        <div className="mb-4">
+          <table className="table">
+            <tr>
+              <td>
+                <strong>Proposer</strong>
+              </td>
+              <td>
+                <a
+                  href={explorerLink(transaction.data.proposer)}
+                  target="_blank"
+                >
+                  {formatPublicKey(transaction.data.proposer)}
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>ETA</strong>
+              </td>
+              <td>{formatDateTime(transaction.data.eta.toNumber())}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div className="mb-4">
+          <strong>Signers</strong>
+        </div>
+        <table className="table mb-4">
+          <tr>
+            <th>Signer</th>
+            {state.multisig.ownersSeqNo.toString() ===
+            transaction.data.ownersSeqNo.toString() ? (
+              <th>Address</th>
+            ) : null}
+            <th>State</th>
+          </tr>
+          {transaction.data.signers.map((s, i) => (
+            <tr key={i}>
+              <td>#{i + 1}</td>
+              {state.multisig.ownersSeqNo.toString() ===
+              transaction.data.ownersSeqNo.toString() ? (
+                <td>{formatPublicKey(state.multisig.owners[i])}</td>
+              ) : null}
+              <td>{s ? "Approved" : "-"}</td>
+            </tr>
+          ))}
+        </table>
+
+        <div className="mb-4">
+          <strong>Instructions</strong>
+        </div>
+        {transaction.data.instructions.map(renderInstruction)}
+      </div>
+    </div>
   );
 }
