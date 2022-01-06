@@ -31,11 +31,11 @@ export const publicKey = (s) => new PublicKey(s);
 
 export const ONE = new BN(1000000000);
 
-const url = typeof window !== "undefined" && window.location.search === "?cluster=devnet"
+export const rpcUrl = typeof window !== "undefined" && window.location.search === "?cluster=devnet"
     ? "https://api.devnet.solana.com"
     : "https://ssc-dao.genesysgo.net/";
 const preflightCommitment = "recent";
-const connection = new anchor.web3.Connection(url, preflightCommitment);
+export const connection = new anchor.web3.Connection(rpcUrl, preflightCommitment);
 
 let listeners = [];
 let state = {

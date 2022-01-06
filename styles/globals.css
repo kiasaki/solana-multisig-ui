@@ -123,6 +123,9 @@ th, td { text-align: left; }
 .table th {
   border-bottom: 2px solid #666666;
 }
+.table td {
+  border-bottom: 1px solid #666666;
+}
 
 .container {
   padding: 16px;

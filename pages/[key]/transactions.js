@@ -40,6 +40,7 @@ export default function Transactions() {
         ]);
         transactions.push({
           key: key,
+          index: i,
           data: await state.program.account.transaction.fetch(key),
         });
       }
@@ -133,7 +134,7 @@ export default function Transactions() {
       if (modal.step === "raw") {
         instructions.push({
           programId: publicKey(input1),
-          keys: JSON.parse(input2).map(k => {
+          keys: JSON.parse(input2).map((k) => {
             k.pubkey = publicKey(k.pubkey);
             return k;
           }),
@@ -291,6 +292,31 @@ export default function Transactions() {
     return null;
   }
 
+  function renderTransaction(t, i) {
+    const executedAt = t.data.executedAt.toNumber();
+    return (
+      <tr key={t.key.toString()}>
+        <td>
+          <strong>{t.index}</strong>
+        </td>
+        <td>{formatDateTime(executedAt || t.data.eta.toNumber())}</td>
+        <td>
+          {t.data.signers.filter((s) => s).length} / {t.data.signers.length}
+        </td>
+        <td className="text-right">
+          <button
+            className="button"
+            onClick={() =>
+              setModal({ type: "view", transaction: t, index: t.index })
+            }
+          >
+            View
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <Layout title="Transactions">
       <div className="box">
@@ -304,46 +330,35 @@ export default function Transactions() {
           </button>
         </h1>
         {transactions ? (
-          <table className="table mb-4">
-            <tr>
-              <th>#</th>
-              <th>Proposer</th>
-              <th>Ixs</th>
-              <th>Signatures</th>
-              <th>ETA</th>
-              <th>Executed</th>
-              <th></th>
-            </tr>
-            {transactions.map((t, i) => {
-              const index = state.multisig.numTransactions.toNumber() - i;
-              const executedAt = t.data.executedAt.toNumber();
-              return (
-                <tr key={t.key.toString()}>
-                  <td>
-                    <strong>{index}</strong>
-                  </td>
-                  <td>{formatPublicKey(t.data.proposer)}</td>
-                  <td>{t.data.instructions.length}</td>
-                  <td>
-                    {t.data.signers.filter((s) => s).length} /{" "}
-                    {t.data.signers.length}
-                  </td>
-                  <td>{formatDateTime(t.data.eta.toNumber())}</td>
-                  <td>{executedAt > 0 ? formatDateTime(executedAt) : "-"}</td>
-                  <td className="text-right">
-                    <button
-                      className="button"
-                      onClick={() =>
-                        setModal({ type: "view", transaction: t, index })
-                      }
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </table>
+          <>
+            <strong>Queue</strong>
+
+            <table className="table mb-4">
+              <tr>
+                <th>#</th>
+                <th>ETA</th>
+                <th>Signatures</th>
+                <th></th>
+              </tr>
+              {transactions
+                .filter((t) => t.data.executedAt.toNumber() == 0)
+                .map(renderTransaction)}
+            </table>
+
+            <strong>History</strong>
+
+            <table className="table mb-4">
+              <tr>
+                <th>#</th>
+                <th>Executed At</th>
+                <th>Signatures</th>
+                <th></th>
+              </tr>
+              {transactions
+                .filter((t) => t.data.executedAt.toNumber() > 0)
+                .map(renderTransaction)}
+            </table>
+          </>
         ) : (
           <div className="mb-4">Loading...</div>
         )}
@@ -412,7 +427,9 @@ export default function Transactions() {
                     onChange={(e) => setInput1(e.target.value)}
                   />
                 </div>
-                <label className="label">Keys (JSON array of Account Meta)</label>
+                <label className="label">
+                  Keys (JSON array of Account Meta)
+                </label>
                 <div className="mb-2">
                   <textarea
                     rows={2}
@@ -587,6 +604,28 @@ export default function Transactions() {
             </h1>
 
             <div className="mb-4">
+              <table className="table">
+                <tr>
+                  <td><strong>Proposer</strong></td>
+                  <td>
+                    <a
+                      href={explorerLink(modal.transaction.data.proposer)}
+                      target="_blank"
+                    >
+                      {formatPublicKey(modal.transaction.data.proposer)}
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>ETA</strong></td>
+                  <td>
+                    {formatDateTime(modal.transaction.data.eta.toNumber())}
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <div className="mb-4">
               <strong>Signers</strong>
             </div>
             <table className="table mb-4">
@@ -643,10 +682,6 @@ export default function Transactions() {
                 ))}
               </div>
             ))}
-
-            <div>
-              ETA: {formatDateTime(modal.transaction.data.eta.toNumber())}
-            </div>
           </div>
         </div>
       ) : null}

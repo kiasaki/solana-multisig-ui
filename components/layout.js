@@ -35,8 +35,9 @@ export default function Layout({ title, children }) {
         </div>
       </div>
 
-      {state.multisig ? (
+      {state.multisigKey ? (
         <div className="navigation">
+          <Link href={`/${state.multisigKey}/balances${window.location.search||''}`}>Balances</Link>
           <Link href={`/${state.multisigKey}/transactions${window.location.search||''}`}>Transactions</Link>
           <Link href={`/${state.multisigKey}/settings${window.location.search||''}`}>Settings</Link>
         </div>
