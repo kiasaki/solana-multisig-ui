@@ -520,7 +520,7 @@ function ModalTransaction({ transaction, onClose }) {
         accounts: {
           signer: state.publicKey,
           multisig: state.multisigKey,
-          transaction: modal.transaction.key,
+          transaction: transaction.key,
         },
       });
       setModal();
