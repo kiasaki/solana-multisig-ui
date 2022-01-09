@@ -498,7 +498,7 @@ export default function Transactions() {
       {modal && modal.type === "view" ? (
         <ModalTransaction
           transaction={modal.transaction}
-          onClose={() => setModal()}
+          onClose={() => { setModal(); fetchData(); }}
         />
       ) : null}
     </Layout>
@@ -523,8 +523,7 @@ function ModalTransaction({ transaction, onClose }) {
           transaction: transaction.key,
         },
       });
-      setModal();
-      fetchData();
+      onClose();
     } catch (err) {
       console.error("approve", err);
       alert("Error: " + err.message);
@@ -562,8 +561,7 @@ function ModalTransaction({ transaction, onClose }) {
         },
         remainingAccounts,
       });
-      setModal();
-      fetchData();
+      onClose();
     } catch (err) {
       console.error("execute", err);
       alert("Error: " + err.message);
