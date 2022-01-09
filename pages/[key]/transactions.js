@@ -589,7 +589,7 @@ function ModalTransaction({ transaction, onClose }) {
               </a>
             </div>
             {formated.args.map((a) => (
-              <div className="" key={a.name}>
+              <div title={a.data} key={a.name}>
                 <strong>{a.name}</strong> {a.data.slice(0, 20)}{a.data.length>20 ? '...' : ''} ({a.type})
               </div>
             ))}
