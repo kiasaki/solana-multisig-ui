@@ -171,6 +171,21 @@ export default function Transactions() {
           )
         );
       }
+      if (modal.step === "ownersAndThreshold") {
+        instructions.push(
+          state.program.instruction.changeThreshold(bn(parseInt(input1), 0), {
+            accounts: { multisig: state.multisigKey },
+          })
+        );
+        instructions.push(
+          state.program.instruction.setOwners(
+            input2.split(",").map((k) => publicKey(k.trim())),
+            {
+              accounts: { multisig: state.multisigKey },
+            }
+          )
+        );
+      }
       await state.program.rpc.createTransaction(instructions, bump, {
         accounts: {
           signer: state.publicKey,
@@ -310,10 +325,18 @@ export default function Transactions() {
                   Multisig: Set Threshold
                 </div>
                 <div
-                  className="box pointer"
+                  className="box pointer mb-2"
                   onClick={() => setModal({ type: "new", step: "owners" })}
                 >
                   Multisig: Set Owners
+                </div>
+                <div
+                  className="box pointer"
+                  onClick={() =>
+                    setModal({ type: "new", step: "ownersAndThreshold" })
+                  }
+                >
+                  Multisig: Set Owners & Threshold
                 </div>
               </div>
             ) : null}
@@ -491,6 +514,35 @@ export default function Transactions() {
                 </div>
               </div>
             ) : null}
+            {modal.step === "ownersAndThreshold" ? (
+              <div>
+                <label className="label">New Threshold</label>
+                <div className="mb-2">
+                  <input
+                    className="input w-full"
+                    value={input1}
+                    onChange={(e) => setInput1(e.target.value)}
+                  />
+                </div>
+                <label className="label">New Owners (comma separated)</label>
+                <div className="mb-2">
+                  <input
+                    className="input w-full"
+                    value={input2}
+                    onChange={(e) => setInput2(e.target.value)}
+                  />
+                </div>
+                <div className="text-right">
+                  <button
+                    className="button"
+                    onClick={onCreate}
+                    disabled={loading}
+                  >
+                    {loading ? "Loading..." : "Create Transaction"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -498,7 +550,10 @@ export default function Transactions() {
       {modal && modal.type === "view" ? (
         <ModalTransaction
           transaction={modal.transaction}
-          onClose={() => { setModal(); fetchData(); }}
+          onClose={() => {
+            setModal();
+            fetchData();
+          }}
         />
       ) : null}
     </Layout>
@@ -590,7 +645,8 @@ function ModalTransaction({ transaction, onClose }) {
             </div>
             {formated.args.map((a) => (
               <div title={a.data} key={a.name}>
-                <strong>{a.name}</strong> {a.data.slice(0, 20)}{a.data.length>20 ? '...' : ''} ({a.type})
+                <strong>{a.name}</strong> {a.data.slice(0, 20)}
+                {a.data.length > 20 ? "..." : ""} ({a.type})
               </div>
             ))}
             <div className="mb-4"></div>
